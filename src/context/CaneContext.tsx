@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import {
   BLEState,
   ObstacleState,
@@ -71,6 +72,8 @@ export function CaneProvider({ children }: { children: React.ReactNode }) {
   const lastSpokenTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollTimer         = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingTimer         = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pingAbortRef      = useRef<AbortController | null>(null);
+  const pollAbortRef      = useRef<AbortController | null>(null);
 
   // ─── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -105,11 +108,35 @@ export function CaneProvider({ children }: { children: React.ReactNode }) {
       onDeviceStatus: (status) => setDeviceStatus(status),
     });
 
+    // Mock obstacle cycling (obstacle detection not implemented on Pi)
+    let mockDist = 350;
+    const obstacleInterval = setInterval(() => {
+      mockDist = mockDist > 15 ? mockDist - 5 : 350;
+      setObstacle({
+        distance: mockDist,
+        severity: mockDist < 50 ? 'danger' : mockDist < 200 ? 'caution' : 'safe',
+        updatedAt: Date.now(),
+      });
+    }, 1000);
+
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        startWiFiPolling(settingsRef.current.piIP);
+      } else {
+        if (pollTimer.current) clearInterval(pollTimer.current);
+        if (pingTimer.current) clearInterval(pingTimer.current);
+        pingAbortRef.current?.abort();
+        pollAbortRef.current?.abort();
+      }
+    });
+
     return () => {
       BLEService.destroy();
       WebSocketService.destroy();
       if (pollTimer.current) clearInterval(pollTimer.current);
       if (pingTimer.current) clearInterval(pingTimer.current);
+      clearInterval(obstacleInterval);
+      appStateSub.remove();
     };
   }, []);
 
@@ -120,25 +147,31 @@ export function CaneProvider({ children }: { children: React.ReactNode }) {
     if (pingTimer.current) clearInterval(pingTimer.current);
 
     const doPing = async () => {
+      pingAbortRef.current?.abort();
+      pingAbortRef.current = new AbortController();
       try {
-        const res = await fetch(`http://${ip}:5000/ping`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(`http://${ip}:5000/ping`, {
+          signal: pingAbortRef.current.signal,
+        });
         if (res.ok) {
-          setBLE(prev => ({
-            ...prev,
-            connected: true,
-            deviceName: prev.deviceName ?? 'SmartCane',
-          }));
+          setBLE(prev => ({ ...prev, connected: true, deviceName: prev.deviceName ?? 'SmartCane' }));
         } else {
           setBLE(prev => ({ ...prev, connected: false }));
         }
-      } catch {
-        setBLE(prev => ({ ...prev, connected: false }));
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') {
+          setBLE(prev => ({ ...prev, connected: false }));
+        }
       }
     };
 
     const doPollStatus = async () => {
+      pollAbortRef.current?.abort();
+      pollAbortRef.current = new AbortController();
       try {
-        const res = await fetch(`http://${ip}:5000/status`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(`http://${ip}:5000/status`, {
+          signal: pollAbortRef.current.signal,
+        });
         if (res.ok) {
           const data = await res.json();
           if (typeof data.battery === 'number') setBattery(data.battery);

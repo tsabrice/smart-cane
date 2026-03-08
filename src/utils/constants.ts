@@ -42,7 +42,7 @@ export const GPS_STATIONARY_DURATION_S  = 60;  // seconds before marking station
 
 // ─── Mock Mode ────────────────────────────────────────────────────────────────
 // Set to true during development when no Pi hardware is available
-export const MOCK_MODE = true;
+export const MOCK_MODE = false;
 
 // ─── BLE Reconnect ────────────────────────────────────────────────────────────
 export const BLE_RECONNECT_INTERVAL_MS = 5_000;

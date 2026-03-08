@@ -261,18 +261,29 @@ export default function FacesScreen() {
 
           {(step === 'uploading' || step === 'done' || step === 'error') && (
             <View style={styles.progressContainer}>
-              {step === 'uploading' && <ActivityIndicator size="large" color={Colors.accent} />}
-              <Text style={[
-                styles.progressText,
-                step === 'done' && { color: Colors.safe },
-                step === 'error' && { color: Colors.danger },
-              ]}>
-                {uploadProgress}
-              </Text>
+              {step === 'uploading' && (
+                <>
+                  <ActivityIndicator size="large" color={Colors.accent} />
+                  <Text style={styles.progressText}>{uploadProgress}</Text>
+                  <Text style={styles.progressHint}>This may take 15–30 seconds</Text>
+                </>
+              )}
+              {step === 'done' && (
+                <>
+                  <View style={styles.successIcon}>
+                    <Text style={styles.successCheck}>✓</Text>
+                  </View>
+                  <Text style={[styles.progressText, { color: Colors.safe }]}>Face registered!</Text>
+                  <Text style={styles.progressHint}>The cane will now recognize this person</Text>
+                </>
+              )}
               {step === 'error' && (
-                <TouchableOpacity style={styles.retryBtn} onPress={resetFlow}>
-                  <Text style={styles.retryBtnText}>Try Again</Text>
-                </TouchableOpacity>
+                <>
+                  <Text style={[styles.progressText, { color: Colors.danger }]}>{uploadProgress}</Text>
+                  <TouchableOpacity style={styles.retryBtn} onPress={resetFlow}>
+                    <Text style={styles.retryBtnText}>Try Again</Text>
+                  </TouchableOpacity>
+                </>
               )}
             </View>
           )}
@@ -361,6 +372,12 @@ const styles = StyleSheet.create({
   saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
   progressContainer: { flex: 1, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', gap: 20, paddingHorizontal: 40 },
   progressText: { fontSize: 18, fontWeight: '600', color: Colors.textPrimary, textAlign: 'center' },
+  progressHint: { fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginTop: 8 },
+  successIcon: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+  },
+  successCheck: { fontSize: 32, color: Colors.safe },
   retryBtn: { backgroundColor: Colors.textPrimary, borderRadius: BorderRadius.md, paddingVertical: 14, paddingHorizontal: 32 },
   retryBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
 });

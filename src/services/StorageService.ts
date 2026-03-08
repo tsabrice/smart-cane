@@ -12,7 +12,11 @@ const KEYS = {
 export async function loadSettings(): Promise<Settings> {
   const raw = await AsyncStorage.getItem(KEYS.SETTINGS);
   if (!raw) return defaultSettings();
-  return { ...defaultSettings(), ...JSON.parse(raw) };
+  try {
+    return { ...defaultSettings(), ...JSON.parse(raw) };
+  } catch {
+    return defaultSettings();
+  }
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
@@ -57,7 +61,11 @@ export async function saveGeofences(geofences: Geofence[]): Promise<void> {
 export async function getMovementLog(): Promise<MovementEvent[]> {
   const raw = await AsyncStorage.getItem(KEYS.MOVEMENT_LOG);
   if (!raw) return [];
-  return JSON.parse(raw);
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
 }
 
 export async function appendMovementEvent(event: MovementEvent): Promise<void> {
@@ -75,12 +83,20 @@ export async function clearMovementLog(): Promise<void> {
 
 export async function appendGPSPoint(point: { lat: number; lng: number; timestamp: number }): Promise<void> {
   const raw = await AsyncStorage.getItem(KEYS.GPS_HISTORY);
-  const history = raw ? JSON.parse(raw) : [];
+  let history: any[] = [];
+  if (raw) {
+    try { history = JSON.parse(raw); } catch { history = []; }
+  }
   const updated = [...history, point].slice(-500); // keep last 500 points
   await AsyncStorage.setItem(KEYS.GPS_HISTORY, JSON.stringify(updated));
 }
 
 export async function getGPSHistory(): Promise<{ lat: number; lng: number; timestamp: number }[]> {
   const raw = await AsyncStorage.getItem(KEYS.GPS_HISTORY);
-  return raw ? JSON.parse(raw) : [];
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
 }

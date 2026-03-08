@@ -1,10 +1,11 @@
+import { AppState, AppStateStatus } from 'react-native';
 import { PI_WS_PORT, WS_RECONNECT_BASE_MS, WS_RECONNECT_MAX_MS } from '../utils/constants';
 
 export interface TTSMessage {
   text: string;
-  type: string;       // e.g. 'face_announcement', 'obstacle_alert', 'sos_warning'
-  timestamp: number;  // Unix seconds from Pi
-  name?: string;      // present on face_announcement
+  type: string;
+  timestamp: number;
+  name?: string;
   confidence?: number;
 }
 
@@ -17,6 +18,7 @@ class WebSocketService {
   private retryDelay = WS_RECONNECT_BASE_MS;
   private stopped = false;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private appStateSubscription: any = null;
 
   // ─── Public API ─────────────────────────────────────────────────────────────
 
@@ -26,32 +28,57 @@ class WebSocketService {
     this.stopped = false;
     this.retryDelay = WS_RECONNECT_BASE_MS;
     this.connect();
+    this.listenAppState();
   }
 
   updateIP(piIP: string): void {
     this.wsUrl = `ws://${piIP}:${PI_WS_PORT}`;
-    // Reconnect to new IP
+    this.retryDelay = WS_RECONNECT_BASE_MS;
     this.ws?.close();
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.connect(); // reconnect immediately to new IP
   }
 
   destroy(): void {
     this.stopped = true;
     if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.appStateSubscription?.remove();
     this.ws?.close();
     this.ws = null;
+  }
+
+  // ─── AppState ────────────────────────────────────────────────────────────────
+
+  private listenAppState(): void {
+    this.appStateSubscription?.remove();
+    this.appStateSubscription = AppState.addEventListener('change', (state: AppStateStatus) => {
+      if (state === 'active') {
+        // App foregrounded — reconnect if needed
+        if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
+          this.retryDelay = WS_RECONNECT_BASE_MS;
+          this.connect();
+        }
+      } else {
+        // App backgrounded — stop retrying to save battery
+        if (this.retryTimer) clearTimeout(this.retryTimer);
+        this.ws?.close();
+        this.ws = null;
+      }
+    });
   }
 
   // ─── Connection ─────────────────────────────────────────────────────────────
 
   private connect(): void {
     if (this.stopped || !this.wsUrl) return;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return; // already connected
 
     try {
       this.ws = new WebSocket(this.wsUrl);
 
       this.ws.onopen = () => {
         console.log('[WS] Connected to Pi TTS server');
-        this.retryDelay = WS_RECONNECT_BASE_MS; // reset backoff on success
+        this.retryDelay = WS_RECONNECT_BASE_MS;
       };
 
       this.ws.onmessage = (e: WebSocketMessageEvent) => {
@@ -72,21 +99,16 @@ class WebSocketService {
       };
 
       this.ws.onerror = () => {
-        // onerror is always followed by onclose — let onclose handle retry
         this.ws?.close();
       };
     } catch (err) {
-      // WebSocket constructor can throw if URL is malformed
       if (!this.stopped) this.scheduleReconnect();
     }
   }
 
   private scheduleReconnect(): void {
     if (this.retryTimer) clearTimeout(this.retryTimer);
-    this.retryTimer = setTimeout(() => {
-      this.connect();
-    }, this.retryDelay);
-    // Exponential backoff: 1s → 2s → 4s … 30s cap
+    this.retryTimer = setTimeout(() => this.connect(), this.retryDelay);
     this.retryDelay = Math.min(this.retryDelay * 2, WS_RECONNECT_MAX_MS);
   }
 }

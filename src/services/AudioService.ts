@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import RNFS from 'react-native-fs';
 import Sound from 'react-native-sound';
 
@@ -23,9 +24,7 @@ export async function playAudioBuffer(buffer: ArrayBuffer): Promise<void> {
 
   try {
     // Convert ArrayBuffer to base64
-    const bytes = new Uint8Array(buffer);
-    const binary = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
-    const base64 = btoa(binary);
+    const base64 = Buffer.from(new Uint8Array(buffer)).toString('base64');
     await RNFS.writeFile(path, base64, 'base64');
   } catch (err) {
     console.warn('[Audio] Failed to write temp file:', err);
