@@ -47,3 +47,16 @@ export const MOCK_MODE = true;
 // ─── BLE Reconnect ────────────────────────────────────────────────────────────
 export const BLE_RECONNECT_INTERVAL_MS = 5_000;
 export const BLE_SCAN_TIMEOUT_MS       = 10_000;
+
+// ─── WebSocket TTS (Pi → Phone) ───────────────────────────────────────────────
+export const PI_WS_PORT              = 5001;
+export const WS_RECONNECT_BASE_MS    = 1_000;
+export const WS_RECONNECT_MAX_MS     = 30_000;
+
+// ─── ElevenLabs TTS ───────────────────────────────────────────────────────────
+export const ELEVENLABS_VOICE_ID     = '21m00Tcm4TlvDq8ikWAM'; // Rachel (change as needed)
+export const ELEVENLABS_MODEL_ID     = 'eleven_turbo_v2_5';
+export const ELEVENLABS_MAX_CHARS    = 300;
+export const TTS_FETCH_TIMEOUT_MS    = 8_000;
+export const TTS_DEDUP_WINDOW_MS     = 10_000; // skip same text within this window
+export const TTS_QUEUE_MAX           = 2;       // drop oldest if Pi sends a burst
